@@ -1,13 +1,3 @@
-// receiver.pde
-//
-// Simple example of how to use VirtualWire to receive messages
-// Implements a simplex (one-way) receiver with an Rx-B1 module
-//
-// See VirtualWire.h for detailed API docs
-// Author: Mike McCauley (mikem@airspayce.com)
-// Copyright (C) 2008 Mike McCauley
-// $Id: receiver.pde,v 1.3 2009/03/30 00:07:24 mikem Exp $
-
 #include <VirtualWire.h> 
 int temp,tempR,pressure,errorsending,Error, ID, SelectedID = 99;
 unsigned int pressR;  
@@ -34,7 +24,6 @@ bool SystemIDCheck(){
 
 void loop ()
 {
-
   if (vw_get_message(buf, &buflen))  {
     int i;
     char data[25];
