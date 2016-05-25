@@ -12,22 +12,17 @@ MyWireLib Sens[2];
 #define S3 3
 #define S4 4
 #define S5 5
-int state1 = S0, state2 = S0;
-int ID = 99, BMP1read, BMP2read;
-float oldT0 = 0, oldT1 = 0;
-float T0derivative, T1derivative;
-
-unsigned int incomingByte = 0;  // for incoming serial data
-unsigned int count = 0; // counting interrupts
-unsigned long timestampA = 0, oldtime = 0, newtime = 0;
-unsigned long timestampB = 0;
-
-///////Transmit stuff
+///////FSM, Time & other definitions 
+int state1 = S0, state2 = S0, ID = 99, BMP1read, BMP2read, BMPError;
+float oldT0 = 0, oldT1 = 0, T0derivative, T1derivative;
+unsigned int incomingByte = 0; 
+unsigned long timestampA = 0, oldtime = 0, newtime = 0, timestampB = 0, timestampSEND = 0;
+///////Transmision definitions
 unsigned  int data = 0, data0 = 0, data1 = 0;  // variable used to store received data
 const  unsigned  int allowedError = 1;   //lower threshold value
 unsigned long timestamp, timestampNOISE;
 unsigned char sentOK;
-///
+/////BMPcomunication definitions
 int16_t  ac1[2], ac2[2], ac3[2], b1[2], b2[2], mb[2], mc[2], md[2]; // Store sensor PROM values from BMP180
 uint16_t ac4[2], ac5[2], ac6[2];                     // Store sensor PROM values from BMP180
 const uint8_t oss = 3;                      // Set oversampling setting
@@ -58,8 +53,6 @@ bool NoiseDetection() {
   return sentOK;
   delay(random(5));
 }
-/////
-
 
 void init_SENSOR(int sensnr)
 {
@@ -133,7 +126,7 @@ void setup()
 
 
 void loop () {
-
+/////////////////Finite State Machine to read/compute BMP values
   int32_t y1, y2, b5, AT, x1, x2, x3, b3, b6, p, UP;
   uint32_t b4, b7;
   switch (state1) {
@@ -170,7 +163,7 @@ void loop () {
       break;
 
     case S4:
-      if (timestampA + 26 <= millis()) {
+      if (timestampA + osd <= millis()) {
         state1 = S5;
         break;
       }
@@ -195,7 +188,7 @@ void loop () {
         p = (b7 << 1) / b4;
       }
       else {
-        p = (b7 / b4) << 1;  // or p = b7 < 0x80000000 ? (b7 * 2) / b4 : (b7 / b4) * 2;
+        p = (b7 / b4) << 1;  
       }
       x1 = (p >> 8) * (p >> 8);
       x1 = (x1 * 3038) >> 16;
@@ -279,15 +272,14 @@ void loop () {
       state2 = S0;
       break;
   }
-
-  int BMPError = 2; // 2 is the ok state with no error
+///////////BMP ERROR DETECTION
+  BMPError = 2; // 2 is the ok state with no error
 
   float averageT, averageP;
   averageT = (T[0] + T[1]) / 2;
   averageP = (P[0] + P[1]) / 2;
 
-///////////BMP ERROR DETECTION
-  if (oldtime + 500 <= millis()) { //takes 5 seconds to detect an error
+if (oldtime + 500 <= millis()) { //Takes the derivitive of the Temperiture value
     oldtime = newtime;
     newtime = millis();
     float interval = newtime - oldtime;
@@ -298,11 +290,7 @@ void loop () {
   }
 
 
-
-
-
-
-if (-10 > T[0] > 50 || T0derivative > 0.3  ) {
+if (-10 > T[0] > 50 || T0derivative > 0.3  ) { //Derivative value was chosen through experimentation.
     averageT = T[1];
     averageP = P[1];
     BMPError = 0;
@@ -330,21 +318,21 @@ if ( -5 > T[0]-T[1] || T[0]-T[1] > 5) {
   Serial.println("mbar");
   Serial.println("--------------------");
 
-///////////////////////////////////////////////////////////Start of Transmission///////////////////////////////////
+////////////////////////////////Start of Transmission///////////////////////////////////
   char SendData[36];
   char IDarray[10];
   char BMParray [2];
   char IncomingData[34];
 
-  if (BMP1read + BMP2read == 2 && NoiseDetection()) {
-    int BMP1read = 0, BMP2read = 0;
-    memset(SendData, 0, 32); // Empties the Msg array
+  if (BMP1read + BMP2read == 2 && NoiseDetection()) { //Only transmit if there are no other transmissions detected and both bmps have new data
+    BMP1read = 0, BMP2read = 0; 
+    memset(SendData, 0, 32); // Empties Send data array
     sprintf(BMParray, "%1d" , BMPError);
     strcat(SendData, BMParray);
     strcat(SendData, ",");
 
     /////Send ID////////////
-    sprintf(IDarray, "%03d" , ID);
+    sprintf(IDarray, "%03d" , ID);//adds following 0's to keep the message length consistent
     strcat(SendData, IDarray);// Add system ID to start of Msg array
     strcat(SendData, ","); // Add a comma next in the Msg array
 
@@ -354,13 +342,13 @@ if ( -5 > T[0]-T[1] || T[0]-T[1] > 5) {
     char Wholetemparry[10];
     char Remaindertemparry[10];
     sprintf(Wholetemparry, "%03d" , Wholetemp);
-    strcat(SendData, Wholetemparry); // Add the temperature to the Msg array
+    strcat(SendData, Wholetemparry); 
     strcat(SendData, ",");
-    sprintf(Remaindertemparry, "%03d" ,  Remaindertemp);// Add a comma to Msg array
+    sprintf(Remaindertemparry, "%03d" ,  Remaindertemp);
     strcat(SendData, Remaindertemparry); 
     strcat(SendData, ","); 
 
-    /////SendPressure//////////
+    /////SendPressure//////////Sends Float as 2 intigers for the intiger value + the remainder. floats could be sent but this made life easier.
     int Wholepress = averageP ;
     int Remainderpress = (averageP - Wholepress) * 1000;
     char Wholepressarry[10];
@@ -384,13 +372,19 @@ if ( -5 > T[0]-T[1] || T[0]-T[1] > 5) {
     strcat(SendData, errorsending);
     ////Transmission/////
    //vw_rx_start();
-    digitalWrite(rfTransmitPower, HIGH);      //power up the transmitter
-    delay(10);
+    digitalWrite(rfTransmitPower, HIGH);      //power up the transmitter then wait for 5ms before sending
+    timestampSEND = millis();
+    if (timestampSEND + 5 <= millis()) {
     vw_send(((uint8_t*) SendData), strlen(SendData));
     Serial.println("                                       - - - - - Package Sent! - - - - - -");
     Serial.print("--------------------                       ");
     Serial.println(SendData);
-  }
+  }}
+
+
+  ///This code was meant for checking the data was correctly transmitted
+  ///Bus as found in the tutorial session virtualwire would not correctly send and recieve at the same time
+  /// this code wanted to recieve the sent value and compare it to itself later but it never recieved anything correctly
 /*
   uint8_t data[50];
   uint8_t buflen = 50;
