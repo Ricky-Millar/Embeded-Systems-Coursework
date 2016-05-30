@@ -371,7 +371,7 @@ if ( -5 > T[0]-T[1] || T[0]-T[1] > 5) {
     sprintf(errorsending, "%02d" , Errorcheck);
     strcat(SendData, errorsending);
     ////Transmission/////
-   //vw_rx_start();
+    //vw_rx_start();
     digitalWrite(rfTransmitPower, HIGH);      //power up the transmitter
     delay(10);
     vw_send(((uint8_t*) SendData), strlen(SendData));
