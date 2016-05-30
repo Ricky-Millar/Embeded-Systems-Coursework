@@ -13,15 +13,6 @@ void setup()
   vw_rx_start();       // Start the receiver PLL running
 }
 
-
-
-bool SystemIDCheck(){
-  if(ID == SelectedID){
-  return 1;}
-  else{
-  return 0;}
-  };
-
 void loop ()
 {
   if (vw_get_message(buf, &buflen))  {
@@ -43,7 +34,6 @@ void loop ()
     Serial.println(Error ? "Sensor 1 Broken" : "Sensor 0 Broken") ;    
     }
 
-    
     strtokIndx = strtok(NULL, ",");
     ID = atoi (strtokIndx);
     strtokIndx = strtok(NULL, ",");
@@ -57,15 +47,13 @@ void loop ()
     strtokIndx = strtok(NULL, ",");
     errorsending = atoi (strtokIndx);
     digitalWrite(13, false);
-    
-    
+     
     int errorrec = ID + temp  + pressure + Error ;    
     int error = errorrec % 2;
     if (error == 0) errorrec = 0;
     else errorrec = 1;
 
-    
-    if (errorrec == errorsending && SystemIDCheck()) {
+    if (errorrec == errorsending && ID == SelectedID) {
       Serial.print("System ID:   ");
       Serial.println(ID);
       Serial.print("Temperature: ");
