@@ -290,13 +290,13 @@ if (oldtime + 500 <= millis()) { //Takes the derivitive of the Temperiture value
   }
 
 
-if (-10 > T[0] > 50 || T0derivative > 0.3  ) { //Derivative value was chosen through experimentation.
+if (-10 > T[0] || T[0] > 50 || T0derivative > 0.3  ) { //Derivative value was chosen through experimentation.
     averageT = T[1];
     averageP = P[1];
     BMPError = 0;
     Serial.println ("BMP error 0");
   }
-if (-10 > T[1] > 50 || T1derivative > 0.3 ) {
+if (-10 > T[1] || T[1] > 50 || T0derivative > 0.3  ) {
     averageT = T[0];
     averageP = P[0];
     BMPError = 1;
